@@ -170,7 +170,7 @@ public class SpellChecker {
         Map<Character, TrieNode> children = new HashMap<>();
         boolean isEndOfWord = false;
     }
-
+    // Main method
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new SpellChecker());
     }
