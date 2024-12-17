@@ -16,7 +16,7 @@ public class SpellChecker {
     public SpellChecker() {
         root = new TrieNode(); // Khởi tạo cây Trie
         try {
-            loadDictionary("dictionary.txt"); // Nạp từ điển từ file "words.txt"
+            loadDictionary("words.txt"); // Nạp từ điển từ file "words.txt"
         } catch (IOException e) {
             // Thông báo lỗi nếu không thể nạp từ điển
             JOptionPane.showMessageDialog(null, "Error loading dictionary: " + e.getMessage());
@@ -111,37 +111,61 @@ public class SpellChecker {
 
     // Tính khoảng cách chỉnh sửa giữa hai từ
     private int calculateWeightedEditDistance(String word1, String word2) {
-        int len1 = word1.length();
-        int len2 = word2.length();
-        int[] prev = new int[len2 + 1];
-        int[] curr = new int[len2 + 1];
+        int[][] dp = new int[word1.length() + 1][word2.length() + 1];
 
-        for (int j = 0; j <= len2; j++) {
-            prev[j] = j;
+        for (int i = 0; i <= word1.length(); i++) {
+            dp[i][0] = i;
         }
 
-        for (int i = 1; i <= len1; i++) {
-            curr[0] = i;
-            for (int j = 1; j <= len2; j++) {
-                int cost;
-                if (word1.charAt(i - 1) == word2.charAt(j - 1)) {
-                    cost = 0;
-                } else if (areNearbyKeys(word1.charAt(i - 1), word2.charAt(j - 1))) {
-                    cost = 1;
-                } else {
-                    cost = 2;
+        for (int j = 0; j <= word2.length(); j++) {
+            dp[0][j] = j;
+        }
+
+        for (int i = 1; i <= word1.length(); i++) {
+            for (int j = 1; j <= word2.length(); j++) {
+                int cost = word1.charAt(i - 1) == word2.charAt(j - 1) ? 0 : keyboardDistance(word1.charAt(i - 1), word2.charAt(j - 1));
+                if (cost == Integer.MAX_VALUE) {
+                    cost = 1; // Default cost if characters are not found on the keyboard
                 }
-                curr[j] = Math.min(Math.min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost);
             }
-            System.arraycopy(curr, 0, prev, 0, len2 + 1);
         }
-        return curr[len2];
-    }
 
-    // Kiểm tra hai phím có gần nhau trên bàn phím không
-    private boolean areNearbyKeys(char a, char b) {
-        String nearbyKeys = "qwertyuioplkjhgfdsazxcvbnm";
-        return Math.abs(nearbyKeys.indexOf(a) - nearbyKeys.indexOf(b)) <= 2;
+        return dp[word1.length()][word2.length()];
+    }
+    
+    // Tính toán khoảng cách giữa các phím trên bàn phím
+    private int keyboardDistance(char c1, char c2) {
+        int[][] keyboard = {
+            {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, // QWERTYUIOP
+            {0, 1, 2, 3, 4, 5, 6, 7, 8, 9},     // ASDFGHJKL
+            {0, 1, 2, 3, 4, 5, 6, 7}            // ZXCVBNM
+        };
+
+        String[] rows = {
+            "qwertyuiop",
+            "asdfghjkl",
+            "zxcvbnm"
+        };
+
+        int[] pos1 = findPosition(rows, c1);
+        int[] pos2 = findPosition(rows, c2);
+
+        if (pos1 == null || pos2 == null) {
+            return Integer.MAX_VALUE; // Characters not found on keyboard
+        }
+
+        return Math.abs(pos1[0] - pos2[0]) + Math.abs(pos1[1] - pos2[1]);
+        }
+
+        private int[] findPosition(String[] rows, char c) {
+        for (int i = 0; i < rows.length; i++) {
+            int index = rows[i].indexOf(c);
+            if (index != -1) {
+            return new int[]{i, index};
+            }
+        }
+        return null;
     }
 
     // Tạo và hiển thị giao diện người dùng
