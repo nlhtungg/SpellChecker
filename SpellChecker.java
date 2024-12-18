@@ -172,19 +172,26 @@ public class SpellChecker {
     private void createAndShowGUI() {
         JFrame frame = new JFrame("Spell Checker");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(500, 300);
-        frame.setLayout(new BorderLayout());
+        frame.setSize(600, 400);
+        frame.setLayout(new BorderLayout(10, 10));
 
         JTextArea inputTextArea = new JTextArea(5, 30);
         inputTextArea.setLineWrap(true);
         inputTextArea.setWrapStyleWord(true);
+        inputTextArea.setBorder(BorderFactory.createTitledBorder("Input Text"));
 
         JTextArea outputTextArea = new JTextArea(5, 30);
         outputTextArea.setLineWrap(true);
         outputTextArea.setWrapStyleWord(true);
         outputTextArea.setEditable(false);
+        outputTextArea.setBorder(BorderFactory.createTitledBorder("Corrected Text"));
 
-        JButton checkButton = new JButton("Check Spelling");
+        JButton checkButton = new JButton("Check");
+        checkButton.setFont(new Font("Arial", Font.BOLD, 14));
+        checkButton.setBackground(new Color(70, 130, 180));
+        checkButton.setForeground(Color.WHITE);
+        checkButton.setFocusPainted(false);
+        checkButton.setPreferredSize(new Dimension(100, 30)); // Set the preferred size to make the button narrower
         checkButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -194,7 +201,8 @@ public class SpellChecker {
             }
         });
 
-        JPanel panel = new JPanel(new BorderLayout());
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         panel.add(new JScrollPane(inputTextArea), BorderLayout.NORTH);
         panel.add(checkButton, BorderLayout.CENTER);
         panel.add(new JScrollPane(outputTextArea), BorderLayout.SOUTH);
