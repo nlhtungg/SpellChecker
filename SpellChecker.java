@@ -1,17 +1,17 @@
-import javax.swing.*; // Thư viện cho giao diện đồ họa
-import java.awt.*; // Thư viện về bố cục giao diện
+import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
+import java.util.List;
 
-// Lớp chính thực hiện chức năng kiểm tra lỗi chính tả
 public class SpellChecker {
 
     private TrieNode root; // Gốc của cây Trie lưu trữ từ điển
-    private static final int NGRAM_SIZE = 2; // Kích thước N-gram để tạo các chuỗi con
+    private static final int NGRAM_SIZE = 3; // Kích thước N-gram để tạo các chuỗi con
 
     public SpellChecker() {
         root = new TrieNode(); // Khởi tạo cây Trie
@@ -26,6 +26,7 @@ public class SpellChecker {
 
     // Hàm nạp từ điển từ file
     private void loadDictionary(String filePath) throws IOException {
+        System.out.println("Loading dictionary from: " + filePath);
         BufferedReader reader = new BufferedReader(new FileReader(filePath));
         String line;
         while ((line = reader.readLine()) != null) {
@@ -34,6 +35,7 @@ public class SpellChecker {
             addNgrams(word); // Tạo và thêm N-gram vào bản đồ N-gram
         }
         reader.close();
+        System.out.println("Dictionary loaded successfully.");
     }
 
     // Thêm một từ vào cây Trie
@@ -65,8 +67,11 @@ public class SpellChecker {
             if (containsWord(word.toLowerCase())) {
                 correctedText.append(word).append(" "); // Nếu từ đúng, giữ nguyên
             } else {
+                int startTime = (int) System.currentTimeMillis();
                 String suggestion = findClosestWord(word); // Tìm từ gần đúng nhất
+                int endTime = (int) System.currentTimeMillis();
                 correctedText.append(suggestion).append(" "); // Thay thế bằng từ gợi ý
+                System.out.println("Time taken to find closest word: " + (endTime - startTime) + "ms");
             }
         }
         return correctedText.toString().trim(); // Trả về văn bản đã chỉnh sửa
@@ -84,17 +89,30 @@ public class SpellChecker {
 
     // Tìm từ gần đúng nhất dựa trên khoảng cách chỉnh sửa
     private String findClosestWord(String word) {
+        System.out.println("Finding closest word for: " + word);
         Set<String> candidates = getNgramCandidates(word); // Lấy danh sách từ ứng viên
         String closestWord = word;
         int minDistance = Integer.MAX_VALUE;
 
         for (String candidate : candidates) {
             int distance = calculateWeightedEditDistance(word.toLowerCase(), candidate); // Tính khoảng cách chỉnh sửa
+            //System.out.println("Distance between " + word + " and " + candidate + ": " + distance);
             if (distance < minDistance) {
                 minDistance = distance;
                 closestWord = candidate; // Cập nhật từ gần đúng nhất
             }
         }
+        List<String> topCandidates = new ArrayList<>(candidates);
+        topCandidates.sort(Comparator.comparingInt(candidate -> calculateWeightedEditDistance(word.toLowerCase(), candidate)));
+        topCandidates = topCandidates.subList(0, Math.min(5, topCandidates.size()));
+        
+        System.out.println("Top 5 closest words and their distances:");
+        for (String candidate : topCandidates) {
+            int distance = calculateWeightedEditDistance(word.toLowerCase(), candidate);
+            System.out.println(candidate + ": " + distance);
+        }
+        
+        closestWord = topCandidates.isEmpty() ? word : topCandidates.get(0);
         return closestWord;
     }
 
@@ -106,6 +124,7 @@ public class SpellChecker {
             Set<String> similarWords = ngramMap.getOrDefault(ngram, Collections.emptySet()); // Lấy các từ tương ứng N-gram
             candidates.addAll(similarWords);
         }
+        System.out.println("Number of candidates: " + candidates.size());
         return candidates;
     }
 
@@ -136,16 +155,11 @@ public class SpellChecker {
     
     // Tính toán khoảng cách giữa các phím trên bàn phím
     private int keyboardDistance(char c1, char c2) {
-        int[][] keyboard = {
-            {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, // QWERTYUIOP
-            {0, 1, 2, 3, 4, 5, 6, 7, 8, 9},     // ASDFGHJKL
-            {0, 1, 2, 3, 4, 5, 6, 7}            // ZXCVBNM
-        };
-
         String[] rows = {
-            "qwertyuiop",
-            "asdfghjkl",
-            "zxcvbnm"
+            "1234567890-=",
+            "qwertyuiop[]",
+            "asdfghjkl;'",
+            "zxcvbnm,./"
         };
 
         int[] pos1 = findPosition(rows, c1);
@@ -154,15 +168,14 @@ public class SpellChecker {
         if (pos1 == null || pos2 == null) {
             return Integer.MAX_VALUE; // Characters not found on keyboard
         }
-
         return Math.abs(pos1[0] - pos2[0]) + Math.abs(pos1[1] - pos2[1]);
-        }
+    }
 
-        private int[] findPosition(String[] rows, char c) {
+    private int[] findPosition(String[] rows, char c) {
         for (int i = 0; i < rows.length; i++) {
             int index = rows[i].indexOf(c);
             if (index != -1) {
-            return new int[]{i, index};
+                return new int[]{i, index};
             }
         }
         return null;
@@ -191,13 +204,15 @@ public class SpellChecker {
         checkButton.setBackground(new Color(70, 130, 180));
         checkButton.setForeground(Color.WHITE);
         checkButton.setFocusPainted(false);
-        checkButton.setPreferredSize(new Dimension(100, 30)); // Set the preferred size to make the button narrower
+        checkButton.setPreferredSize(new Dimension(100, 30));
         checkButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String inputText = inputTextArea.getText();
+                System.out.println("Input text: " + inputText);
                 String correctedText = spellCheck(inputText);
                 outputTextArea.setText(correctedText);
+                System.out.println("Output text: " + correctedText);
             }
         });
 
