@@ -10,6 +10,12 @@ import java.util.List;
 
 public class SpellChecker {
 
+    // Lớp TrieNode để lưu trữ cấu trúc Trie
+    static class TrieNode {
+        Map<Character, TrieNode> children = new HashMap<>();
+        boolean isEndOfWord = false;
+    }
+
     private TrieNode root; // Gốc của cây Trie lưu trữ từ điển
     private static final int NGRAM_SIZE = 3; // Kích thước N-gram để tạo các chuỗi con
 
@@ -96,7 +102,6 @@ public class SpellChecker {
 
         for (String candidate : candidates) {
             int distance = calculateWeightedEditDistance(word.toLowerCase(), candidate); // Tính khoảng cách chỉnh sửa
-            //System.out.println("Distance between " + word + " and " + candidate + ": " + distance);
             if (distance < minDistance) {
                 minDistance = distance;
                 closestWord = candidate; // Cập nhật từ gần đúng nhất
@@ -224,12 +229,6 @@ public class SpellChecker {
 
         frame.add(panel);
         frame.setVisible(true);
-    }
-
-    // Lớp TrieNode để lưu trữ cấu trúc Trie
-    static class TrieNode {
-        Map<Character, TrieNode> children = new HashMap<>();
-        boolean isEndOfWord = false;
     }
 
     // Hàm main để chạy chương trình

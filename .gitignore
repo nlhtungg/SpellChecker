@@ -1,3 +1,5 @@
 *.class
 *.ipynb
 .vscode
+.project
+.classpath
