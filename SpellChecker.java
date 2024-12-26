@@ -137,13 +137,42 @@ public class SpellChecker {
 
         for (int i = 1; i <= word1.length(); i++) {
             for (int j = 1; j <= word2.length(); j++) {
-                int cost = word1.charAt(i - 1) == word2.charAt(j - 1) ? 0 : 1;
+                int cost = word1.charAt(i - 1) == word2.charAt(j - 1) ? 0 : keyboardDistance(word1.charAt(i - 1), word2.charAt(j - 1));
                 dp[i][j] = Math.min(dp[i - 1][j] + 1,
                         Math.min(dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost));
             }
         }
         return dp[word1.length()][word2.length()];
     }
+
+    // Tính toán khoảng cách giữa các phím trên bàn phím
+    private int keyboardDistance(char c1, char c2) {
+        String[] rows = {
+            "1234567890-=",
+            "qwertyuiop[]",
+            "asdfghjkl;'",
+            "zxcvbnm,./"
+        };
+
+        int[] pos1 = findPosition(rows, c1);
+        int[] pos2 = findPosition(rows, c2);
+
+        if (pos1 == null || pos2 == null) {
+            return Integer.MAX_VALUE; // Characters not found on keyboard
+        }
+        return Math.abs(pos1[0] - pos2[0]) + Math.abs(pos1[1] - pos2[1]);
+    }
+
+    private int[] findPosition(String[] rows, char c) {
+        for (int i = 0; i < rows.length; i++) {
+            int index = rows[i].indexOf(c);
+            if (index != -1) {
+                return new int[]{i, index};
+            }
+        }
+        return null;
+    }
+
 
     // Create and display the GUI
     private void createAndShowGUI() {
