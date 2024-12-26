@@ -1,192 +1,151 @@
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.*;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Collections;
 
 public class SpellChecker {
 
-    // Lớp TrieNode để lưu trữ cấu trúc Trie
+    // Class representing a Trie Node
     static class TrieNode {
         Map<Character, TrieNode> children = new HashMap<>();
         boolean isEndOfWord = false;
     }
 
-    private TrieNode root; // Gốc của cây Trie lưu trữ từ điển
-    private static final int NGRAM_SIZE = 3; // Kích thước N-gram để tạo các chuỗi con
+    private TrieNode root; // Root of the Trie
+    private static final int NGRAM_SIZE = 3; // Size of N-grams
+    private Map<String, Set<String>> ngramMap = new HashMap<>(); // Map to store N-grams
 
     public SpellChecker() {
-        root = new TrieNode(); // Khởi tạo cây Trie
+        root = new TrieNode();
         try {
-            loadDictionary("words.txt"); // Nạp từ điển từ file "words.txt"
+            loadDictionary("words.txt");
         } catch (IOException e) {
-            // Thông báo lỗi nếu không thể nạp từ điển
             JOptionPane.showMessageDialog(null, "Error loading dictionary: " + e.getMessage());
         }
-        createAndShowGUI(); // Tạo và hiển thị giao diện đồ họa
+        createAndShowGUI();
     }
 
-    // Hàm nạp từ điển từ file
+    // Load dictionary from file
     private void loadDictionary(String filePath) throws IOException {
         System.out.println("Loading dictionary from: " + filePath);
         BufferedReader reader = new BufferedReader(new FileReader(filePath));
         String line;
         while ((line = reader.readLine()) != null) {
-            String word = line.trim().toLowerCase(); // Chuyển từ về chữ thường và loại bỏ khoảng trắng
-            addWord(word); // Thêm từ vào Trie
-            addNgrams(word); // Tạo và thêm N-gram vào bản đồ N-gram
+            String word = line.trim().toLowerCase();
+            addWord(word); // Add word to Trie
+            addNgrams(word); // Generate and store N-grams
         }
         reader.close();
         System.out.println("Dictionary loaded successfully.");
     }
 
-    // Thêm một từ vào cây Trie
+    // Add word to Trie
     private void addWord(String word) {
         TrieNode node = root;
         for (char c : word.toCharArray()) {
-            node = node.children.computeIfAbsent(c, k -> new TrieNode()); // Thêm nút nếu chưa tồn tại
+            node = node.children.computeIfAbsent(c, k -> new TrieNode());
         }
-        node.isEndOfWord = true; // Đánh dấu nút cuối là từ hoàn chỉnh
+        node.isEndOfWord = true;
     }
 
-    // Bản đồ lưu trữ các N-gram và từ liên quan
-    private Map<String, Set<String>> ngramMap = new HashMap<>();
-
-    // Tạo và thêm các N-gram của từ vào ngramMap
+    // Generate N-grams and store them in the map
     private void addNgrams(String word) {
         for (int i = 0; i <= word.length() - NGRAM_SIZE; i++) {
-            String ngram = word.substring(i, i + NGRAM_SIZE); // Tạo N-gram từ chuỗi con
-            ngramMap.computeIfAbsent(ngram, k -> new HashSet<>()).add(word); // Lưu từ vào N-gram tương ứng
+            String ngram = word.substring(i, i + NGRAM_SIZE);
+            ngramMap.computeIfAbsent(ngram, k -> new HashSet<>()).add(word);
         }
     }
 
-    // Hàm kiểm tra lỗi chính tả cho một đoạn văn bản
+    // Spell-check a text
     private String spellCheck(String text) {
-        String[] words = text.split("\\s+"); // Tách văn bản thành các từ
+        String[] words = text.split("\\s+");
         StringBuilder correctedText = new StringBuilder();
 
         for (String word : words) {
             if (containsWord(word.toLowerCase())) {
-                correctedText.append(word).append(" "); // Nếu từ đúng, giữ nguyên
+                correctedText.append(word).append(" ");
             } else {
-                int startTime = (int) System.currentTimeMillis();
-                String suggestion = findClosestWord(word); // Tìm từ gần đúng nhất
-                int endTime = (int) System.currentTimeMillis();
-                correctedText.append(suggestion).append(" "); // Thay thế bằng từ gợi ý
-                System.out.println("Time taken to find closest word: " + (endTime - startTime) + "ms");
+                Set<String> candidates = getNgramCandidates(word);
+                if (candidates.isEmpty()) {
+                    correctedText.append(word).append(" "); // No suggestions, keep original
+                } else {
+                    List<String> topCandidates = new ArrayList<>(candidates);
+                    topCandidates.sort(Comparator.comparingInt(candidate -> calculateWeightedEditDistance(word.toLowerCase(), candidate)));
+                    topCandidates = topCandidates.subList(0, Math.min(10, topCandidates.size()));
+
+                    // Show suggestions and get user choice
+                    String suggestion = showSuggestionDialog(word, topCandidates);
+                    correctedText.append(suggestion).append(" ");
+                }
             }
         }
-        return correctedText.toString().trim(); // Trả về văn bản đã chỉnh sửa
+        return correctedText.toString().trim();
     }
 
-    // Kiểm tra từ có tồn tại trong Trie hay không
+    // Show suggestions in a dialog box
+    private String showSuggestionDialog(String word, List<String> suggestions) {
+        String[] options = suggestions.toArray(new String[0]);
+        String selectedWord = (String) JOptionPane.showInputDialog(
+                null,
+                "The word \"" + word + "\" is misspelled. Please choose a suggestion:",
+                "Spell Checker Suggestions",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]
+        );
+        return selectedWord != null ? selectedWord : word; // Fallback to original word if user cancels
+    }
+
+    // Check if a word exists in the Trie
     private boolean containsWord(String word) {
         TrieNode node = root;
         for (char c : word.toCharArray()) {
             node = node.children.get(c);
-            if (node == null) return false; // Nếu không tìm thấy ký tự, từ không tồn tại
+            if (node == null) return false;
         }
-        return node.isEndOfWord; // Kiểm tra nếu nút cuối là từ hoàn chỉnh
+        return node.isEndOfWord;
     }
 
-    // Tìm từ gần đúng nhất dựa trên khoảng cách chỉnh sửa
-    private String findClosestWord(String word) {
-        System.out.println("Finding closest word for: " + word);
-        Set<String> candidates = getNgramCandidates(word); // Lấy danh sách từ ứng viên
-        String closestWord = word;
-        int minDistance = Integer.MAX_VALUE;
-
-        for (String candidate : candidates) {
-            int distance = calculateWeightedEditDistance(word.toLowerCase(), candidate); // Tính khoảng cách chỉnh sửa
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestWord = candidate; // Cập nhật từ gần đúng nhất
-            }
-        }
-        List<String> topCandidates = new ArrayList<>(candidates);
-        topCandidates.sort(Comparator.comparingInt(candidate -> calculateWeightedEditDistance(word.toLowerCase(), candidate)));
-        topCandidates = topCandidates.subList(0, Math.min(5, topCandidates.size()));
-        
-        System.out.println("Top 5 closest words and their distances:");
-        for (String candidate : topCandidates) {
-            int distance = calculateWeightedEditDistance(word.toLowerCase(), candidate);
-            System.out.println(candidate + ": " + distance);
-        }
-        
-        closestWord = topCandidates.isEmpty() ? word : topCandidates.get(0);
-        return closestWord;
-    }
-
-    // Lấy các từ ứng viên từ bản đồ N-gram
+    // Get candidate words using N-grams
     private Set<String> getNgramCandidates(String word) {
         Set<String> candidates = new HashSet<>();
         for (int i = 0; i <= word.length() - NGRAM_SIZE; i++) {
             String ngram = word.substring(i, i + NGRAM_SIZE);
-            Set<String> similarWords = ngramMap.getOrDefault(ngram, Collections.emptySet()); // Lấy các từ tương ứng N-gram
-            candidates.addAll(similarWords);
+            candidates.addAll(ngramMap.getOrDefault(ngram, Collections.emptySet()));
         }
-        System.out.println("Number of candidates: " + candidates.size());
+        System.out.println("Number of candidates for word \"" + word + "\": " + candidates.size());
         return candidates;
     }
 
-    // Tính khoảng cách chỉnh sửa giữa hai từ
+    // Calculate weighted edit distance
     private int calculateWeightedEditDistance(String word1, String word2) {
         int[][] dp = new int[word1.length() + 1][word2.length() + 1];
 
-        for (int i = 0; i <= word1.length(); i++) {
-            dp[i][0] = i;
-        }
-
-        for (int j = 0; j <= word2.length(); j++) {
-            dp[0][j] = j;
-        }
+        for (int i = 0; i <= word1.length(); i++) dp[i][0] = i;
+        for (int j = 0; j <= word2.length(); j++) dp[0][j] = j;
 
         for (int i = 1; i <= word1.length(); i++) {
             for (int j = 1; j <= word2.length(); j++) {
-                int cost = word1.charAt(i - 1) == word2.charAt(j - 1) ? 0 : keyboardDistance(word1.charAt(i - 1), word2.charAt(j - 1));
-                if (cost == Integer.MAX_VALUE) {
-                    cost = 1; // Default cost if characters are not found on the keyboard
-                }
-                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost);
+                int cost = word1.charAt(i - 1) == word2.charAt(j - 1) ? 0 : 1;
+                dp[i][j] = Math.min(dp[i - 1][j] + 1,
+                        Math.min(dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost));
             }
         }
-
         return dp[word1.length()][word2.length()];
     }
-    
-    // Tính toán khoảng cách giữa các phím trên bàn phím
-    private int keyboardDistance(char c1, char c2) {
-        String[] rows = {
-            "1234567890-=",
-            "qwertyuiop[]",
-            "asdfghjkl;'",
-            "zxcvbnm,./"
-        };
 
-        int[] pos1 = findPosition(rows, c1);
-        int[] pos2 = findPosition(rows, c2);
-
-        if (pos1 == null || pos2 == null) {
-            return Integer.MAX_VALUE; // Characters not found on keyboard
-        }
-        return Math.abs(pos1[0] - pos2[0]) + Math.abs(pos1[1] - pos2[1]);
-    }
-
-    private int[] findPosition(String[] rows, char c) {
-        for (int i = 0; i < rows.length; i++) {
-            int index = rows[i].indexOf(c);
-            if (index != -1) {
-                return new int[]{i, index};
-            }
-        }
-        return null;
-    }
-
-    // Tạo và hiển thị giao diện người dùng
+    // Create and display the GUI
     private void createAndShowGUI() {
         JFrame frame = new JFrame("Spell Checker");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -210,15 +169,10 @@ public class SpellChecker {
         checkButton.setForeground(Color.WHITE);
         checkButton.setFocusPainted(false);
         checkButton.setPreferredSize(new Dimension(100, 30));
-        checkButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String inputText = inputTextArea.getText();
-                System.out.println("Input text: " + inputText);
-                String correctedText = spellCheck(inputText);
-                outputTextArea.setText(correctedText);
-                System.out.println("Output text: " + correctedText);
-            }
+        checkButton.addActionListener((ActionEvent e) -> {
+            String inputText = inputTextArea.getText();
+            String correctedText = spellCheck(inputText);
+            outputTextArea.setText(correctedText);
         });
 
         JPanel panel = new JPanel(new BorderLayout(10, 10));
@@ -231,8 +185,7 @@ public class SpellChecker {
         frame.setVisible(true);
     }
 
-    // Hàm main để chạy chương trình
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new SpellChecker());
+        SwingUtilities.invokeLater(SpellChecker::new);
     }
 }
